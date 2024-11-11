@@ -1,101 +1,148 @@
+"use client"
+
 import Image from "next/image";
+import {useEffect, useState} from "react";
+import Handler from "@/api/analyzer";
+// import Markdown from "react-markdown";
 
-export default function Home() {
+const Home = () => {
+  const [resume, setResume] = useState(null);
+  const [description, setDescription] = useState('');
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const savedResume = localStorage.getItem("resume");
+    const savedDescription = localStorage.getItem("description");
+    // const savedResult = localStorage.getItem("result");
+
+    if (savedResume) {
+      setResume(new Blob([savedResume], {type: "text/plain"}));
+    }
+    if (savedDescription) {
+      setDescription(savedDescription);
+    }
+    // if (savedResult) {
+    //   setResult(JSON.parse(savedResult));
+    // }
+  }, []);
+
+  useEffect(() => {
+    if (description) {
+      localStorage.setItem("description", description);
+    }
+
+  }, [description]);
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    setResume(file);
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      localStorage.setItem("resume", reader.result);
+    };
+    reader.readAsText(file);
+  }
+
+
+  const handleDescriptionChange = (e) => {
+    setDescription(e.target.value);
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!resume || !description) {
+      alert("Please upload a resume and enter a job description.");
+      return;
+    }
+
+    setLoading(true);
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const resumeContent = e.target.result;
+
+      try {
+        const data = await Handler(resumeContent, description);
+        if (data.success) {
+          setResult(data.analysis);
+          // localStorage.setItem("result", data.analysis);
+
+        } else {
+          alert("An error occurred during analysis.");
+        }
+
+      } catch (err) {
+        console.log("---------Error during analysis: ", err.message);
+        alert("An error occurred during analyzing the resume.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    reader.readAsText(resume);
+  };
+
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.js
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+      <div>
+        <div className="bg-white font-roboto flex flex-col items-center justify-center gap-4">
+          <div className="flex bg-blue-600 w-full justify-center text-white p-4 items-center">
+            <h1 className="text-2xl font-bold">ATS Friendly Resume Analyzer</h1>
+          </div>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+          <div className="w-4/5 lg:w-3/5 p-4 bg-white border border-gray-400 rounded-lg items-center">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold mb-4">Analyze Your Resume for ATS Compatibility</h2>
+              <p className="text-gray-700">Upload your resume and job description to get a detailed analysis
+                to
+                ensure it passes through Applicant Tracking Systems.</p>
+            </div>
+
+            <div className="mb-8">
+              <form className="bg-gray-100 p-6 rounded-lg" onSubmit={handleSubmit}>
+                <div className="mb-4">
+                  <label className="font-bold text-gray-700 mb-2 block text-[16px]">Upload a
+                    resume</label>
+                  <label
+                      className="text-xs text-gray-500 flex items-center gap-2 cursor-pointer border self-center p-4 justify-center"
+                      htmlFor="resume">
+                    <Image src="/upload.png" alt="" width={28} height={28}/>
+                    <span>Upload a resume</span>
+                  </label>
+                  <input type="file" id="resume" onChange={handleFileChange}
+                         className="w-full hidden p-2 border border-gray-300 rounded-lg"/>
+                </div>
+                <div className="mb-4">
+                  <label form="job-description" className="block text-gray-700 font-bold mb-2">Job
+                    Description</label>
+                  <textarea id="job-description" rows={5} value={description}
+                            onChange={handleDescriptionChange} placeholder="Enter the job description"
+                            className="w-full p-2 border border-gray-300 rounded-lg"/>
+                </div>
+                <button type="submit"
+                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 items-center flex self-center"
+                        disabled={loading}>{loading ? 'Analyzing...' : 'Analyze Resume'}</button>
+              </form>
+            </div>
+            {result && (
+                <div className="bg-gray-100 rounded-lg p-4">
+                  <h3 className="text-2xl font-bold mb-4 text-center">Analysis Result</h3>
+                  <div className="p-4 rounded-lg text-center">
+                    <p className="text-gray-700">{result}</p>
+                  </div>
+                </div>
+            )}
+          </div>
+
+          <div className="bg-blue-600 p-4 w-full align-bottom">
+            <div className="container text-white text-center">
+              <p>&copy; 2024 <a href="https://www.linkedin.com/in/ksulakshana/">@kSulakshana</a>. All rights reserved.</p>
+            </div>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      </div>
   );
 }
+
+export default Home;
